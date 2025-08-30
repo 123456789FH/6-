@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>كويز تفاعلي — اجتز 80% لتحصل على الشهادة</title>
+  <meta name="description" content="اختبار تفاعلي سريع للمرحلة الابتدائية مع شهادة إنجاز تُفتح عند تحقيق 80% فأكثر — يعمل دون إنترنت." />
+  <style>
+    :root{
+      --primary:#ff3d71; /* وردي حماسي */
+      --primary-2:#ff6ea2;
+      --accent:#ffe55c;  /* أصفر للجوائز */
+      --bg:#fff7fb;
+      --card:#ffffff;
+      --text:#222;
+      --muted:#6b7280;
+      --success:#22c55e; /* أخضر النجاح */
+      --danger:#ef4444;  /* أحمر التحذير */
+      --shadow:0 14px 32px rgba(0,0,0,.08);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Naskh Arabic", "Noto Sans Arabic", Tahoma, Arial, sans-serif;
+      background:
+        radial-gradient(1200px 500px at 110% -10%, #ffe3ef 18%, transparent 60%),
+        radial-gradient(1100px 500px at -10% 110%, #e0f7fa 14%, transparent 60%),
+        var(--bg);
+      color:var(--text);
+    }
+    .wrap{max-width:980px;margin:18px auto;padding:16px}
+    header{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .logo{
+      width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--primary),var(--primary-2));
+      color:white;font-size:28px;box-shadow:var(--shadow)
+    }
+    h1{margin:0;font-size:clamp(20px,4vw,30px)}
+    .sub{color:var(--muted);font-size:14px;margin-top:4px}
+
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+    .grid{display:grid;gap:16px}
+
+    .progress{
+      background:#f2f4f7;border-radius:100px;height:12px;overflow:hidden
+    }
+    .bar{background:linear-gradient(90deg,var(--primary),var(--primary-2));height:100%;width:0%}
+
+    .q-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--muted);font-size:14px}
+    .q-title{font-size:clamp(18px,3.5vw,24px);margin:4px 0 10px}
+
+    .choices{display:grid;gap:10px}
+    .choice{
+      border:2px solid #f0f0f0;border-radius:16px;padding:12px 14px;cursor:pointer;background:white;
+      transition:transform .1s ease, border-color .15s ease, background .15s ease;
+    }
+    .choice:hover{transform:translateY(-2px);border-color:#ddd}
+    .choice.selected{border-color:var(--primary-2);background:linear-gradient(0deg,#fff, #fff8fb)}
+    .choice.correct{border-color:var(--success);background:linear-gradient(0deg,#fff, #f0fff4);color:var(--success)}
+    .choice.wrong{border-color:var(--danger);background:linear-gradient(0deg,#fff, #fff1f2)}
+
+    .actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-top:8px}
+    .btn{
+      appearance:none;border:0;border-radius:14px;padding:12px 16px;cursor:pointer;font-weight:700
+    }
+    .primary{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white}
+    .ghost{background:white;border:1.5px dashed #e5e7eb;color:var(--text)}
+    .danger{background:var(--danger);color:white}
+    .success{background:var(--success);color:white}
+
+    .result h2{margin:6px 0 12px}
+    .badge{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:999px;background:#f8fafc;border:1px solid #eef2f7;color:#111827;font-weight:700}
+    .badge .dot{width:10px;height:10px;border-radius:99px}
+
+    .hidden{display:none}
+
+    /* لوحة الشهادة */
+    .cert-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);padding:16px}
+    .cert{width:min(920px,94vw);background:white;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .cert-head{padding:18px 20px;background:linear-gradient(180deg,#fff7fb, #fff);border-bottom:1px solid #f1f5f9}
+    .cert-body{padding:18px}
+    .cert-grid{display:grid;gap:16px;grid-template-columns:1.2fr .8fr}
+    .cert-preview{background:repeating-linear-gradient(45deg,#fafafa,#fafafa 10px,#f7f7f7 10px,#f7f7f7 20px);border-radius:16px;padding:10px}
+    canvas{max-width:100%;height:auto;border-radius:12px;display:block;margin:auto}
+
+    .foot{margin:26px 0 10px;color:var(--muted);font-size:13px;text-align:center}
+
+    /* كونفيتي */
+    .confetti{position:fixed;top:-10px;width:10px;height:14px;opacity:.9;pointer-events:none;will-change:transform}
+    @keyframes fall{to{transform:translateY(110vh) rotate(600deg)}}
+
+    /* طباعة الشهادة فقط */
+    @media print{ 
+      body{background:white}
+      #app, header, .foot{display:none !important}
+      .cert-modal{position:static;display:block !important}
+      .cert{box-shadow:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo" aria-hidden="true">★</div>
+      <div>
+        <h1>كويز عام — نسخة مُحسّنة</h1>
+        <div class="sub">أجب عن الأسئلة، ثم اعرض نتيجتك. الشهادة تُفتح تلقائيًا إذا حققت <b>80%</b> فأكثر.</div>
+      </div>
+    </header>
+
+    <main id="app" class="grid" aria-live="polite">
+      <section id="quizCard" class="card">
+        <div class="q-meta">
+          <div id="qIndex">السؤال —</div>
+          <div id="qTimer" class="badge"><span class="dot" style="background:#9ca3af"></span> مؤقّت اختياري</div>
+        </div>
+        <div class="progress" aria-hidden="true"><div id="bar" class="bar"></div></div>
+        <h2 id="qTitle" class="q-title">—</h2>
+        <div id="choices" class="choices"></div>
+        <div class="actions">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="prevBtn" class="btn ghost" type="button">السابق</button>
+            <button id="nextBtn" class="btn primary" type="button">التالي</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="submitBtn" class="btn success" type="button">عرض النتيجة</button>
+            <button id="resetBtn" class="btn ghost" type="button">إعادة المحاولة</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="resultCard" class="card result hidden">
+        <h2>نتيجتك النهائية</h2>
+        <p id="scoreLine" style="margin:6px 0 10px;font-weight:700"></p>
+        <p id="adviceLine" style="margin:0 0 12px"></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="showCertBtn" class="btn primary hidden" type="button">🎉 عرض الشهادة</button>
+          <button id="retryBtn" class="btn ghost" type="button">🔁 إعادة المحاولة</button>
+        </div>
+        <div class="sub" style="margin-top:12px">ملاحظة: إذا كان عدد الأسئلة قليلًا (مثل 4)، فقد يلزمك الإجابة الصحيحة عن جميعها لاجتياز 80% (يُقرب للأعلى).</div>
+      </section>
+    </main>
+
+    <div class="foot">تصميم وبرمجة: <b>أ/ فاطمة هزازي</b> — يعمل دون اتصال. © 1447هـ</div>
+  </div>
+
+  <!-- نافذة الشهادة -->
+  <div id="certModal" class="cert-modal" role="dialog" aria-modal="true" aria-labelledby="certTitle">
+    <div class="cert">
+      <div class="cert-head">
+        <h3 id="certTitle" style="margin:0">🏆 شهادة إنجاز</h3>
+        <div class="sub">تظهر هذه الشهادة فقط لمن اجتاز نسبة <b>80%</b> فأكثر.</div>
+      </div>
+      <div class="cert-body">
+        <div class="cert-grid">
+          <div class="cert-preview">
+            <canvas id="certCanvas" width="1200" height="800" aria-label="معاينة الشهادة"></canvas>
+          </div>
+          <div class="cert-form">
+            <label for="studentName" style="font-weight:700;display:block;margin-bottom:6px">اسم الطالب/ة على الشهادة</label>
+            <input id="studentName" type="text" placeholder="اكتُب/ي الاسم هنا" style="width:100%;padding:12px 14px;border:1.5px solid #e5e7eb;border-radius:12px" />
+
+            <div style="display:grid;gap:10px;margin-top:14px">
+              <button id="dlPngBtn" class="btn primary" type="button">⬇️ تحميل الشهادة كصورة PNG</button>
+              <button id="printBtn" class="btn ghost" type="button">🖨️ طباعة الشهادة</button>
+              <button id="closeCertBtn" class="btn danger" type="button">إغلاق</button>
+            </div>
+
+            <div class="sub" style="margin-top:12px">سيتم حفظ الاسم محليًا لطباعته لاحقًا بسهولة.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // ===== 1) الأسئلة من الدردشة + سؤال من صفحتك =====
+  const questions = [
+    {
+      text: "وجد ٤ صفوف، في كل صف ٢٥ طالبة. كم المجموع؟",
+      choices: ["٧٥ طالبة", "١٠٠ طالبة", "١٢٥ طالبة"],
+      correctIndex: 1
+    },
+    {
+      text: "مع سارة ٩٠ ريالًا، اشترت لعبة بـ٣٧ ريالًا. كم تبقّى؟",
+      choices: ["٥٧ ريالًا", "٥٣ ريالًا", "٦٣ ريالًا"],
+      correctIndex: 1
+    },
+    {
+      text: "٣٦ قلمًا توزّع بالتساوي على ٦ طلاب. كم قلمًا لكل طالب؟",
+      choices: ["٥ أقلام", "٦ أقلام", "٧ أقلام"],
+      correctIndex: 1
+    },
+    {
+      text: "في نادٍ رياضي، سجلت البنات ٤٢ حصة والأولاد ٣٥ حصة هذا الأسبوع. بكم يزيد عدد البنات؟",
+      choices: ["٥ حصص", "٧ حصص", "٩ حصص"],
+      correctIndex: 1
+    },
+    {
+      text: "صنِّف العدد ١٠:",
+      choices: ["أولي", "غير أولي"],
+      correctIndex: 1
+    }
+  ];
+
+  // ===== 2) الحالة والمتغيرات =====
+  const PASS_PCT = 80; // الحد الأدنى للشهادة
+  let idx = 0;
+  let answers = new Array(questions.length).fill(null); // index لكل اختيار
+
+  // ===== 3) ربط العناصر =====
+  const qIndex = document.getElementById('qIndex');
+  const qTitle = document.getElementById('qTitle');
+  const qTimer = document.getElementById('qTimer');
+  const bar = document.getElementById('bar');
+  const choicesEl = document.getElementById('choices');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const submitBtn = document.getElementById('submitBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const resultCard = document.getElementById('resultCard');
+  const scoreLine = document.getElementById('scoreLine');
+  const adviceLine = document.getElementById('adviceLine');
+  const showCertBtn = document.getElementById('showCertBtn');
+  const retryBtn = document.getElementById('retryBtn');
+
+  const certModal = document.getElementById('certModal');
+  const certCanvas = document.getElementById('certCanvas');
+  const ctx = certCanvas.getContext('2d');
+  const studentNameInput = document.getElementById('studentName');
+  const dlPngBtn = document.getElementById('dlPngBtn');
+  const printBtn = document.getElementById('printBtn');
+  const closeCertBtn = document.getElementById('closeCertBtn');
+
+  // ===== 4) مؤقّت (اختياري) — ألغيناه افتراضياً =====
+  let timerOn = false; // إن رغبتِ بتفعيل المؤقت، اجعليها true
+  let timeLeft = 20;
+  let timerId = null;
+
+  function startTimer(){
+    if(!timerOn) { qTimer.style.display='none'; return; }
+    qTimer.style.display='inline-flex';
+    updateTimerBadge();
+    clearInterval(timerId);
+    timerId = setInterval(()=>{
+      timeLeft--; updateTimerBadge();
+      if(timeLeft<=0){
+        clearInterval(timerId);
+        // الانتقال تلقائياً
+        next();
+      }
+    },1000);
+  }
+  function updateTimerBadge(){
+    qTimer.innerHTML = `<span class="dot" style="background:${timeLeft<6?'#ef4444':'#9ca3af'}"></span> الوقت: ${timeLeft} ث`;
+  }
+
+  // ===== 5) رسم واجهة السؤال =====
+  function render(){
+    const total = questions.length;
+    qIndex.textContent = `السؤال ${idx+1} من ${total}`;
+    qTitle.textContent = questions[idx].text;
+
+    // تقدّم
+    bar.style.width = `${((idx)/ (total-1)) * 100}%`;
+
+    // اختيارات
+    choicesEl.innerHTML = '';
+    questions[idx].choices.forEach((choice, i)=>{
+      const btn = document.createElement('button');
+      btn.type='button';
+      btn.className = 'choice';
+      btn.textContent = choice;
+      if(answers[idx] === i) btn.classList.add('selected');
+      btn.addEventListener('click', ()=>{
+        answers[idx] = i;
+        // تغذية راجعة فورية: الأخضر للإجابة الصحيحة
+        document.querySelectorAll('.choice').forEach((c,j)=>{
+          c.classList.remove('selected','correct','wrong');
+          if(j === i){
+            if(i === questions[idx].correctIndex) c.classList.add('correct');
+            else c.classList.add('wrong');
+          }
+          if(j === questions[idx].correctIndex) c.classList.add('correct');
+        });
+      });
+      choicesEl.appendChild(btn);
+    });
+
+    // إذا تمت الإجابة سابقًا، أظهر التصحيح فورًا (الأخضر للإجابة الصحيحة)
+    if(answers[idx] !== null){
+      const correctIdx = questions[idx].correctIndex;
+      const selectedIdx = answers[idx];
+      document.querySelectorAll('.choice').forEach((c,j)=>{
+        c.classList.remove('selected','correct','wrong');
+        if(j === selectedIdx){
+          if(selectedIdx === correctIdx) c.classList.add('correct');
+          else c.classList.add('wrong');
+        }
+        if(j === correctIdx) c.classList.add('correct');
+      });
+    }
+
+    prevBtn.disabled = idx===0;
+    nextBtn.disabled = idx===total-1;
+
+    // مؤقت لكل سؤال (إن كان مفعلاً)
+    timeLeft = 20; // ثواني لكل سؤال
+    startTimer();
+  }
+
+  function next(){
+    const last = questions.length-1;
+    if(idx < last){ idx++; render(); }
+  }
+  function prev(){
+    if(idx>0){ idx--; render(); }
+  }
+
+  function calcScore(){
+    let correct = 0;
+    answers.forEach((ans, i)=>{ if(ans === questions[i].correctIndex) correct++; });
+    const total = questions.length;
+    const pct = Math.round((correct/total)*100);
+    // أقل عدد صحيح للاجتياز (تقريب للأعلى)
+    const needed = Math.ceil((PASS_PCT/100)*total);
+    return {correct,total,pct,needed};
+  }
+
+  function showResult(){
+    const {correct,total,pct,needed} = calcScore();
+
+    // تمييز الصحيح بالأخضر في السؤال الحالي
+    choicesEl.querySelectorAll('.choice').forEach((el,i)=>{
+      el.classList.remove('selected');
+      const isCorrect = i === questions[idx].correctIndex;
+      if(isCorrect) el.classList.add('correct');
+    });
+
+    document.getElementById('quizCard').classList.add('hidden');
+    resultCard.classList.remove('hidden');
+
+    scoreLine.textContent = `حصلتَ/تِ على ${correct} من ${total} — نسبة ${pct}% (المطلوب للاجتياز: ${needed}/${total})`;
+
+    const passed = correct >= needed;
+    if(passed){
+      adviceLine.innerHTML = `أحسنت! اجتزتَ/تِ الاختبار. اضغط/ي الزر أدناه لعرض الشهادة.`;
+      showCertBtn.classList.remove('hidden');
+      fireConfetti();
+      // حفظ آخر نتيجة
+      localStorage.setItem('lastScore', JSON.stringify({correct,total,pct,date: new Date().toISOString()}));
+    } else {
+      adviceLine.innerHTML = `لم تصل/ي إلى نسبة <b>${PASS_PCT}%</b> بعد. راجع/ي المحاولة وجرّب/ي مرة أخرى — أنت تستطيع/ين!`;
+      showCertBtn.classList.add('hidden');
+    }
+  }
+
+  function resetAll(){
+    idx = 0; answers = new Array(questions.length).fill(null);
+    document.getElementById('quizCard').classList.remove('hidden');
+    resultCard.classList.add('hidden');
+    render();
+  }
+
+  // ===== 6) الشهادة: رسم على Canvas (بدون مكتبات خارجية) =====
+  function drawCertificate(){
+    const name = (studentNameInput.value || 'اسم الطالب/ة').trim();
+    localStorage.setItem('studentName', name);
+
+    const {correct,total,pct} = calcScore();
+
+    // خلفية متدرجة
+    const g = ctx.createLinearGradient(0,0,0,800);
+    g.addColorStop(0,'#fff7fb');
+    g.addColorStop(.6,'#fff');
+    g.addColorStop(1,'#f7fbff');
+    ctx.fillStyle = g; ctx.fillRect(0,0,1200,800);
+
+    // إطار ذهبي
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 10; ctx.strokeRect(40,40,1120,720);
+
+    // شريط علوي
+    const g2 = ctx.createLinearGradient(0,0,1200,0);
+    g2.addColorStop(0,'#ff3d71'); g2.addColorStop(1,'#ff6ea2');
+    ctx.fillStyle = g2; ctx.fillRect(40,40,1120,90);
+
+    // عنوان
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 44px "Noto Sans Arabic", Tahoma, Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('🏆 شهادة إنجاز', 600, 100);
+
+    // نص رئيسي
+    ctx.fillStyle = '#111827';
+    ctx.font = '700 40px "Noto Sans Arabic", Tahoma, Arial';
+    ctx.fillText('تُمنَح هذه الشهادة إلى', 600, 220);
+
+    // الاسم
+    ctx.font = '800 56px "Noto Sans Arabic", Tahoma, Arial';
+    ctx.fillStyle = '#1f2937';
+    ctx.fillText(name, 600, 290);
+
+    // نسبة ونتيجة
+    ctx.font = '600 28px "Noto Sans Arabic", Tahoma, Arial';
+    ctx.fillStyle = '#374151';
+    const pctText = `النتيجة: ${correct}/${total} — ${pct}%`;
+    ctx.fillText(pctText, 600, 340);
+
+    // سطر ثانٍ
+    ctx.font = '400 26px "Noto Sans Arabic", Tahoma, Arial';
+    ctx.fillStyle = '#4b5563';
+    ctx.fillText('لاستكماله/ها متطلبات الاختبار بنجاح وتحقيق نسبة 80% فأكثر.', 600, 380);
+
+    // نجوم زخرفية
+    ctx.font = 'bold 60px Arial';
+    const stars = ['⭐','⭐','⭐','⭐','⭐'];
+    ctx.fillText(stars.join(' '), 600, 460);
+
+    // التاريخ والتوقيع
+    const dateStr = new Date().toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
+    ctx.font = '600 24px "Noto Sans Arabic", Tahoma, Arial';
+    ctx.fillStyle = '#111827';
+    ctx.textAlign = 'left';
+    ctx.fillText(`التاريخ: ${dateStr}`, 80, 540);
+    ctx.textAlign = 'right';
+    ctx.fillText('تصميم وبرمجة: أ/ فاطمة هزازي', 1120, 540);
+
+    // ختم دائري بسيط
+    ctx.save();
+    ctx.translate(980, 620);
+    ctx.rotate(-0.15);
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(0,0,70,0,Math.PI*2); ctx.stroke();
+    ctx.font = 'bold 18px "Noto Sans Arabic", Tahoma, Arial';
+    ctx.fillStyle = '#f59e0b';
+    ctx.textAlign = 'center';
+    ctx.fillText('Najm ⭐ Math', 0, -8);
+    ctx.fillText('CERTIFIED', 0, 18);
+    ctx.restore();
+  }
+
+  function openCert(){
+    drawCertificate();
+    certModal.style.display='flex';
+  }
+  function closeCert(){
+    certModal.style.display='none';
+  }
+
+  dlPngBtn?.addEventListener('click', ()=>{
+    drawCertificate();
+    const url = certCanvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url; a.download = `شهادة-إنجاز.png`;
+    a.click();
+  });
+  printBtn?.addEventListener('click', ()=>{
+    drawCertificate();
+    window.print();
+  });
+  closeCertBtn?.addEventListener('click', closeCert);
+  studentNameInput?.addEventListener('input', drawCertificate);
+
+  // حفظ/تحميل الاسم
+  const savedName = localStorage.getItem('studentName');
+  if(savedName) studentNameInput.value = savedName;
+
+  // ===== 7) كونفيتي بسيط — بدون مكتبات =====
+  function fireConfetti(){
+    const n = 140;
+    for(let i=0;i<n;i++){
+      const d = document.createElement('div');
+      d.className='confetti';
+      const size = 8 + Math.random()*8;
+      d.style.width = size+'px';
+      d.style.height = (size*1.3)+'px';
+      d.style.left = (Math.random()*100)+'vw';
+      d.style.background = `hsl(${Math.random()*360}, 90%, 60%)`;
+      d.style.transform = `translateY(-10px) rotate(${Math.random()*360}deg)`;
+      d.style.animation = `fall ${4+Math.random()*3}s linear forwards`;
+      d.style.borderRadius = '3px';
+      document.body.appendChild(d);
+      setTimeout(()=> d.remove(), 8000);
+    }
+  }
+
+  // ===== 8) ربط الأزرار =====
+  prevBtn.addEventListener('click', prev);
+  nextBtn.addEventListener('click', next);
+  submitBtn.addEventListener('click', showResult);
+  resetBtn.addEventListener('click', resetAll);
+  retryBtn.addEventListener('click', resetAll);
+  showCertBtn.addEventListener('click', openCert);
+
+  // بداية
+  render();
+})();
+</script>
+</body>
+</html>
